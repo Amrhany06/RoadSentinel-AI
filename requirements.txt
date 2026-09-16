@@ -1,0 +1,25 @@
+# RoadSentinel AI — consolidated dependency list (Colab, local dev, Streamlit Cloud)
+ultralytics>=8.2.0
+opencv-python-headless>=4.9.0
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+streamlit
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+kagglehub
+anthropic
+pillow
+joblib
+xgboost
+shap
+torch
+torchvision
+grad-cam
+imbalanced-learn
+folium
+streamlit-folium

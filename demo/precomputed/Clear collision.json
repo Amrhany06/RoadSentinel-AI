@@ -1,0 +1,31 @@
+{
+  "accident_probability": 0.965,
+  "stage": "dispatched",
+  "triage_passed": true,
+  "sample_frame_path": "demo\\clear_collision_frame.jpg",
+  "annotated_video_path": "demo/precomputed\\Clear collision_annotated.mp4",
+  "telemetry": {
+    "avg_speed": 0.0,
+    "max_speed": 74.5,
+    "max_deceleration": 16.8,
+    "trajectory_variance": 0.0,
+    "max_iou": 0.78
+  },
+  "timings": {
+    "perception_sec": 5.07,
+    "triage_sec": 0.056,
+    "total_sec": 5.321
+  },
+  "severity_tier": 5,
+  "predicted_response_minutes": 6.2,
+  "explanation": "High-speed multi-vehicle collision detected. Bounding box intersection (IoU=0.78) with extreme deceleration (-16.8 m/s\u00b2). Significant front-quarter impact and lane blockage.",
+  "recommended_action": "CODE 3 IMMEDIATE DISPATCH: 2x Advanced Life Support Ambulances, 1x Heavy Rescue Fire Engine, 2x Highway Patrol Cruisers for perimeter traffic diversion.",
+  "dispatch_ticket": {
+    "ticket_id": 3,
+    "severity_tier": 5,
+    "status": "DISPATCHED",
+    "units_dispatched": "Heavy Rescue, Trauma EMS Unit, Fire Engine, Highway Patrol (Level 5)",
+    "predicted_eta_minutes": 6.2,
+    "created_at": "2026-09-16 06:55:39 UTC"
+  }
+}

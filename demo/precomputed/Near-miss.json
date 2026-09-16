@@ -1,0 +1,23 @@
+{
+  "accident_probability": 0.685,
+  "stage": "reasoned",
+  "triage_passed": true,
+  "sample_frame_path": "demo\\near-miss_frame.jpg",
+  "annotated_video_path": "demo/precomputed\\Near-miss_annotated.mp4",
+  "telemetry": {
+    "avg_speed": 0.0,
+    "max_speed": 62.0,
+    "max_deceleration": 9.4,
+    "trajectory_variance": 0.0,
+    "max_iou": 0.24
+  },
+  "timings": {
+    "perception_sec": 4.333,
+    "triage_sec": 0.004,
+    "total_sec": 4.482
+  },
+  "severity_tier": 2,
+  "predicted_response_minutes": 8.8,
+  "explanation": "Abrupt emergency deceleration and evasive lane divergence detected. High proximity (IoU=0.24) without structural cabin deformation.",
+  "recommended_action": "ADVISORY LOGGED: Maintain automated optical surveillance. Issue caution advisory on roadside VMS."
+}

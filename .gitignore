@@ -1,0 +1,19 @@
+# Raw/large datasets -- never commit these, see docs/ for download instructions
+data/
+*.mp4
+*.avi
+# ...except the small, curated demo clips and their precomputed cache -- these ARE committed
+!demo/**
+!demo/**/*.mp4
+
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+dispatch_tickets.db
+.venv/
+.ipynb_checkpoints/
+
+# Model artifacts: DO commit the small ones produced by this project
+# (svm_triage_pipeline.joblib, severity_kmeans.joblib, response_time_regressor.joblib,
+# hotspot_kmeans.joblib are all KB-sized) -- only ignore large ones explicitly if you add any.
