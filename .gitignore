@@ -21,3 +21,8 @@ dispatch_tickets.db
 # Model artifacts: DO commit the small ones produced by this project
 # (svm_triage_pipeline.joblib, severity_kmeans.joblib, response_time_regressor.joblib,
 # hotspot_kmeans.joblib are all KB-sized) -- only ignore large ones explicitly if you add any.
+
+# Local study guides & defense reference manuals (kept in parent workspace)
+*GUIDE*.md
+*EXPLANATION*.md
+
