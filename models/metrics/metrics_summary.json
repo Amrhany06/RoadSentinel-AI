@@ -1,38 +1,38 @@
 [
   {
     "Model": "SVM",
-    "Accuracy": 1.0,
+    "Accuracy": 0.7142857142857143,
     "Precision": 1.0,
-    "Recall": 1.0,
-    "F1 Score": 1.0,
-    "ROC-AUC": 1.0,
-    "PR-AUC": 1.0
+    "Recall": 0.42857142857142855,
+    "F1 Score": 0.6,
+    "ROC-AUC": 0.8903061224489796,
+    "PR-AUC": 0.8946798483839615
   },
   {
     "Model": "RandomForest",
-    "Accuracy": 1.0,
-    "Precision": 1.0,
-    "Recall": 1.0,
-    "F1 Score": 1.0,
-    "ROC-AUC": 1.0,
-    "PR-AUC": 1.0
+    "Accuracy": 0.7857142857142857,
+    "Precision": 0.7857142857142857,
+    "Recall": 0.7857142857142857,
+    "F1 Score": 0.7857142857142857,
+    "ROC-AUC": 0.8903061224489796,
+    "PR-AUC": 0.8850623990855084
   },
   {
     "Model": "LogisticRegression",
-    "Accuracy": 1.0,
+    "Accuracy": 0.6785714285714286,
     "Precision": 1.0,
-    "Recall": 1.0,
-    "F1 Score": 1.0,
-    "ROC-AUC": 1.0,
-    "PR-AUC": 1.0
+    "Recall": 0.35714285714285715,
+    "F1 Score": 0.5263157894736842,
+    "ROC-AUC": 0.8086734693877551,
+    "PR-AUC": 0.8730946551114617
   },
   {
     "Model": "XGBoost",
-    "Accuracy": 1.0,
-    "Precision": 1.0,
-    "Recall": 1.0,
-    "F1 Score": 1.0,
-    "ROC-AUC": 1.0,
-    "PR-AUC": 1.0
+    "Accuracy": 0.7857142857142857,
+    "Precision": 0.7857142857142857,
+    "Recall": 0.7857142857142857,
+    "F1 Score": 0.7857142857142857,
+    "ROC-AUC": 0.8698979591836734,
+    "PR-AUC": 0.8486961285557039
   }
 ]
