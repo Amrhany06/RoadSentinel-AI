@@ -129,6 +129,29 @@ def annotate_video(
 
     cap.release()
     out.release()
+
+    # Re-encode to H.264 for native browser playback
+    try:
+        import subprocess
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        h264_temp = output_path.replace(".mp4", "_browser.mp4")
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i", output_path,
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-preset", "ultrafast",
+            "-crf", "23",
+            h264_temp,
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if res.returncode == 0 and os.path.exists(h264_temp) and os.path.getsize(h264_temp) > 0:
+            os.replace(h264_temp, output_path)
+    except Exception:
+        pass
+
     print(f"Rendered annotated video -> {output_path}")
     return output_path
 
