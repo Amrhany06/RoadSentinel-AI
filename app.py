@@ -397,7 +397,7 @@ def get_pipeline():
             predicted_eta_minutes=predicted_eta_minutes,
         )
 
-    triage_model = system_models.get("rf", system_models.get("svm"))
+    triage_model = system_models.get("xgb", system_models.get("rf", system_models.get("svm")))
 
     return RoadSentinelPipeline(
         triage_pipeline=triage_model,
@@ -746,16 +746,14 @@ with tab_ops:
                     if is_static:
                         st.metric("Max Speed Observed", "N/A (Static Camera Frame)")
                     else:
-                        raw_spd = float(tel.get('max_speed', 0))
-                        disp_spd = min(135.0, raw_spd * 0.18) if raw_spd > 120 else raw_spd
-                        st.metric("Max Speed Observed", f"{disp_spd:.1f} km/h")
+                        spd = float(tel.get("max_speed", 0.0))
+                        st.metric("Max Speed Observed", f"{spd:.1f} km/h")
                 with k_col2:
                     if is_static:
                         st.metric("Peak Deceleration", "N/A (Static Camera Frame)")
                     else:
-                        raw_decel = abs(float(tel.get('max_deceleration', 0)))
-                        disp_decel = min(36.0, raw_decel * 0.005) if raw_decel > 50 else raw_decel
-                        st.metric("Peak Deceleration", f"{disp_decel:.1f} m/s²")
+                        decel = abs(float(tel.get("max_deceleration", 0.0)))
+                        st.metric("Peak Deceleration", f"{decel:.1f} m/s²")
                 with k_col3:
                     st.metric("Bounding Box Overlap (IoU)", f"{tel.get('max_iou', 0):.2f}")
 

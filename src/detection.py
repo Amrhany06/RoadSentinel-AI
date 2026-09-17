@@ -10,8 +10,9 @@ import cv2
 import numpy as np
 import pandas as pd
 
-# COCO vehicle classes: car (2), motorcycle (3), bus (5), truck (7)
-VEHICLE_CLASS_IDS = [2, 3, 5, 7]
+# Roadway classes: person (0), bicycle (1), car (2), motorcycle (3), bus (5), truck (7)
+# Person & bicycle are essential to track motorcyclists and fallen riders during collisions
+VEHICLE_CLASS_IDS = [0, 1, 2, 3, 5, 7]
 
 _model = None
 
@@ -25,46 +26,130 @@ def _get_model():
     return _model
 
 
-def extract_tracks(video_path: str, conf: float = 0.35) -> pd.DataFrame:
-    """Run YOLOv8 + ByteTrack on a video file.
+def _hungarian_centroid_tracking(results, vid_stride: int = 1) -> list[dict]:
+    """Pure Python/SciPy Hungarian centroid tracker.
+    
+    Acts as a zero-dependency fallback whenever ByteTrack or 'lap'/'lapx'
+    is unavailable in the environment (e.g. Streamlit Community Cloud).
+    """
+    try:
+        from scipy.optimize import linear_sum_assignment
+    except ImportError:
+        linear_sum_assignment = None
 
-    Returns a DataFrame with columns: frame, track_id, x, y, w, h
-    (coordinates in pixels).
+    active_tracks = {}  # track_id -> {'x': x, 'y': y, 'w': w, 'h': h, 'last_frame': f}
+    next_id = 1
+    max_dist = 140.0  # max centroid distance in pixels to match
+    max_lost = 8 * vid_stride
+
+    records = []
+    for f_idx, r in enumerate(results):
+        actual_frame = f_idx * vid_stride
+        if r.boxes is None or len(r.boxes) == 0:
+            continue
+        boxes = r.boxes.xywh.cpu().numpy()
+
+        if len(active_tracks) == 0:
+            for b in boxes:
+                active_tracks[next_id] = {"x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3]), "last_frame": actual_frame}
+                records.append({"frame": actual_frame, "track_id": next_id, "x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3])})
+                next_id += 1
+        elif linear_sum_assignment is not None:
+            t_ids = list(active_tracks.keys())
+            t_coords = np.array([[active_tracks[tid]["x"], active_tracks[tid]["y"]] for tid in t_ids])
+            d_coords = boxes[:, :2]
+
+            dist_matrix = np.linalg.norm(t_coords[:, None, :] - d_coords[None, :, :], axis=2)
+            row_ind, col_ind = linear_sum_assignment(dist_matrix)
+
+            matched_tracks = set()
+            matched_detections = set()
+            for r_i, c_i in zip(row_ind, col_ind):
+                if dist_matrix[r_i, c_i] < max_dist:
+                    tid = t_ids[r_i]
+                    b = boxes[c_i]
+                    active_tracks[tid] = {"x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3]), "last_frame": actual_frame}
+                    records.append({"frame": actual_frame, "track_id": tid, "x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3])})
+                    matched_tracks.add(tid)
+                    matched_detections.add(c_i)
+
+            for c_i, b in enumerate(boxes):
+                if c_i not in matched_detections:
+                    active_tracks[next_id] = {"x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3]), "last_frame": actual_frame}
+                    records.append({"frame": actual_frame, "track_id": next_id, "x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3])})
+                    next_id += 1
+
+            dead_ids = [tid for tid, data in active_tracks.items() if actual_frame - data["last_frame"] > max_lost]
+            for tid in dead_ids:
+                del active_tracks[tid]
+        else:
+            # Simple greedy fallback if scipy is also missing
+            for b in boxes:
+                records.append({"frame": actual_frame, "track_id": next_id, "x": float(b[0]), "y": float(b[1]), "w": float(b[2]), "h": float(b[3])})
+                next_id += 1
+
+    return records
+
+
+def extract_tracks(video_path: str, conf: float = 0.25, vid_stride: int = 2) -> pd.DataFrame:
+    """Run multi-object tracking on a video with automatic fallback for cloud deployments.
+
+    Tries YOLOv8 + ByteTrack first. If 'lap' or C-extensions are missing in the
+    environment (e.g. Streamlit Cloud), seamlessly falls back to pure-Python
+    Hungarian centroid matching so the application never crashes.
     """
     if not os.path.exists(video_path):
         raise FileNotFoundError(f"Video file not found: {video_path}")
 
     model = _get_model()
-    results = model.track(
-        source=video_path,
-        conf=conf,
-        classes=VEHICLE_CLASS_IDS,
-        tracker="bytetrack.yaml",
-        persist=True,
-        stream=True,
-        verbose=False,
-    )
-
     records = []
-    for frame_idx, r in enumerate(results):
-        if r.boxes is None or r.boxes.id is None:
-            continue
-        boxes = r.boxes.xywh.cpu().numpy()
-        track_ids = r.boxes.id.cpu().numpy()
-        for box, tid in zip(boxes, track_ids):
-            x, y, w, h = box
-            records.append({
-                "frame": frame_idx,
-                "track_id": int(tid),
-                "x": float(x),
-                "y": float(y),
-                "w": float(w),
-                "h": float(h),
-            })
+
+    # Attempt primary ByteTrack
+    try:
+        results = model.track(
+            source=video_path,
+            conf=conf,
+            classes=VEHICLE_CLASS_IDS,
+            tracker="bytetrack.yaml",
+            persist=True,
+            imgsz=480,
+            vid_stride=vid_stride,
+            stream=True,
+            verbose=False,
+        )
+
+        for frame_idx, r in enumerate(results):
+            actual_frame = frame_idx * vid_stride
+            if r.boxes is None or r.boxes.id is None:
+                continue
+            boxes = r.boxes.xywh.cpu().numpy()
+            track_ids = r.boxes.id.cpu().numpy()
+            for box, tid in zip(boxes, track_ids):
+                x, y, w, h = box
+                records.append({
+                    "frame": actual_frame,
+                    "track_id": int(tid),
+                    "x": float(x),
+                    "y": float(y),
+                    "w": float(w),
+                    "h": float(h),
+                })
+    except Exception as e:
+        # Fallback to pure PyTorch prediction + Hungarian assignment
+        print(f"[Tracker Notice] ByteTrack unavailable ({type(e).__name__}: {e}), using robust Hungarian fallback.")
+        results = model.predict(
+            source=video_path,
+            conf=conf,
+            classes=VEHICLE_CLASS_IDS,
+            imgsz=480,
+            vid_stride=vid_stride,
+            stream=True,
+            verbose=False,
+        )
+        records = _hungarian_centroid_tracking(results, vid_stride=vid_stride)
 
     df = pd.DataFrame(records, columns=["frame", "track_id", "x", "y", "w", "h"])
     if df.empty:
-        # Provide defensive fallback so pipeline does not crash on empty/dark video
         return pd.DataFrame(columns=["frame", "track_id", "x", "y", "w", "h"])
     return df
 

@@ -9,6 +9,8 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Optional
 
+import cv2
+
 from src.detection import annotate_video, extract_keyframe, extract_tracks
 from src.features import engineer_motion_features, iou_overlap_features, summarize_video_features
 
@@ -48,8 +50,16 @@ class RoadSentinelPipeline:
         # STAGE 1: PERCEPTION (Vehicle Detection & Tracking)
         # -------------------------------------------------------------
         t0 = time.time()
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        if fps <= 0 or fps > 120:
+            fps = 30.0
+        vid_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 852.0
+        vid_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480.0
+        cap.release()
+
         tracks_df = extract_tracks(video_path)
-        motion_df = engineer_motion_features(tracks_df)
+        motion_df = engineer_motion_features(tracks_df, fps=int(fps), width=float(vid_w), height=float(vid_h))
         iou_df = iou_overlap_features(tracks_df)
         row_df = summarize_video_features(motion_df, iou_df, context)
         timings["perception_sec"] = round(time.time() - t0, 3)
@@ -81,11 +91,12 @@ class RoadSentinelPipeline:
             "sample_frame_path": sample_frame_path,
             "annotated_video_path": annotated_path,
             "telemetry": {
-                "avg_speed": float(row_df["avg_speed"].iloc[0]),
-                "max_speed": float(row_df["max_speed"].iloc[0]),
-                "max_deceleration": float(row_df["max_deceleration"].iloc[0]),
+                "is_static": False,
+                "avg_speed": round(float(row_df["avg_speed"].iloc[0]), 1),
+                "max_speed": round(float(row_df["max_speed"].iloc[0]), 1),
+                "max_deceleration": round(float(row_df["max_deceleration"].iloc[0]), 1),
                 "trajectory_variance": float(row_df["trajectory_variance"].iloc[0]),
-                "max_iou": float(row_df["max_iou"].iloc[0]),
+                "max_iou": round(float(row_df["max_iou"].iloc[0]), 2),
             },
         }
 

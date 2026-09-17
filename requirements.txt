@@ -24,3 +24,5 @@ imbalanced-learn
 folium
 streamlit-folium
 imageio-ffmpeg
+scipy>=1.10.0
+lapx>=0.5.2

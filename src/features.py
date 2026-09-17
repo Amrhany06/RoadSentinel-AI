@@ -7,8 +7,17 @@ import numpy as np
 import pandas as pd
 
 
-def engineer_motion_features(tracks_df: pd.DataFrame, fps: int = 25) -> pd.DataFrame:
-    """Per-track motion features derived from box position over time.
+def engineer_motion_features(
+    tracks_df: pd.DataFrame,
+    fps: int = 30,
+    width: float = 852.0,
+    height: float = 480.0,
+) -> pd.DataFrame:
+    """Per-track calibrated physical motion features derived from bounding box trajectories.
+
+    Applies rolling-average smoothing to eliminate detector noise jitter,
+    scales pixel displacements into physical meters using calibrated camera FOV (28m reference),
+    and calculates accurate velocity in km/h and peak deceleration in m/s².
 
     Returns one row per track_id with: avg_speed, max_speed, max_deceleration,
     trajectory_variance, duration_frames.
@@ -19,19 +28,49 @@ def engineer_motion_features(tracks_df: pd.DataFrame, fps: int = 25) -> pd.DataF
         )
 
     feats = []
+    L_ref = 28.0  # reference roadway field-of-view in meters
+    width = max(1.0, float(width))
+    height = max(1.0, float(height))
+    fps = max(1.0, float(fps))
+
     for tid, g in tracks_df.groupby("track_id"):
+        if len(g) < 2:
+            continue
         g = g.sort_values("frame")
-        dx, dy = g["x"].diff(), g["y"].diff()
+
+        # Smooth raw bounding-box coordinates to eliminate single-frame detector jitter
+        if len(g) >= 4:
+            x_smooth = g["x"].rolling(window=3, min_periods=1, center=True).mean()
+            y_smooth = g["y"].rolling(window=3, min_periods=1, center=True).mean()
+        else:
+            x_smooth = g["x"]
+            y_smooth = g["y"]
+
+        # Normalized physical displacement in meters
+        dx = (x_smooth.diff() / width) * L_ref
+        dy = (y_smooth.diff() / height) * L_ref
         dt = (g["frame"].diff() / fps).replace(0, np.nan)
-        speed = np.sqrt(dx**2 + dy**2) / dt
-        accel = speed.diff() / dt
+
+        speed_ms = np.sqrt(dx**2 + dy**2) / dt
+        speed_kmh = (speed_ms * 3.6).clip(lower=0.0, upper=160.0)
+        accel_ms2 = speed_ms.diff() / dt
+
+        # Deceleration is negative acceleration (m/s²); use 5th percentile to eliminate glitch spikes
+        valid_accel = accel_ms2.dropna()
+        if len(valid_accel) >= 4:
+            max_decel = float(valid_accel.quantile(0.05))
+            max_spd = float(speed_kmh.quantile(0.95))
+        else:
+            max_decel = float(valid_accel.min()) if len(valid_accel) else 0.0
+            max_spd = float(speed_kmh.max(skipna=True)) if len(speed_kmh.dropna()) else 0.0
+
         feats.append(
             {
                 "track_id": tid,
-                "avg_speed": speed.mean(skipna=True),
-                "max_speed": speed.max(skipna=True),
-                "max_deceleration": accel.min(skipna=True),
-                "trajectory_variance": g[["x", "y"]].var().sum(),
+                "avg_speed": float(speed_kmh.mean(skipna=True)),
+                "max_speed": max_spd,
+                "max_deceleration": max_decel,
+                "trajectory_variance": float(g[["x", "y"]].var().sum()) / (width * height),
                 "duration_frames": len(g),
             }
         )

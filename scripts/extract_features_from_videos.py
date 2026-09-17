@@ -23,9 +23,8 @@ from ultralytics import YOLO
 # Add repository root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from src.detection import extract_tracks
 from src.features import engineer_motion_features, iou_overlap_features, summarize_video_features
-
-VEHICLE_CLASSES = [2, 3, 5, 7]  # car, motorcycle, bus, truck
 
 
 def extract_features_from_all_videos(
@@ -33,7 +32,7 @@ def extract_features_from_all_videos(
     output_csv: str = "data/engineered_features.csv",
     stride: int = 2,
     imgsz: int = 480,
-    conf: float = 0.30,
+    conf: float = 0.25,
 ) -> pd.DataFrame:
     print("=" * 65)
     print(" ROADSENTINEL AI -- REAL VIDEO DATASET FEATURE EXTRACTION ")
@@ -56,10 +55,6 @@ def extract_features_from_all_videos(
     print(f"Video source folder: {video_dir}")
     print(f"Tracking config: vid_stride={stride}, imgsz={imgsz}, conf={conf}")
 
-    # Load YOLO detector
-    print("Loading YOLOv8n object detector...")
-    model = YOLO("yolov8n.pt")
-
     records = []
     total_videos = len(df_labels)
     t_start = time.time()
@@ -78,6 +73,8 @@ def extract_features_from_all_videos(
         fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         if fps <= 0 or fps > 120:
             fps = 30.0
+        vid_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 852.0
+        vid_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 480.0
 
         # Sample lighting from keyframe
         ret, sample_frame = cap.read()
@@ -101,38 +98,10 @@ def extract_features_from_all_videos(
             "time_of_day": time_of_day,
         }
 
-        # Track vehicles across frames
+        # Track vehicles across frames with automatic fallback
         t_vid = time.time()
-        results = model.track(
-            source=vpath,
-            conf=conf,
-            classes=VEHICLE_CLASSES,
-            tracker="bytetrack.yaml",
-            persist=True,
-            imgsz=imgsz,
-            vid_stride=stride,
-            stream=True,
-            verbose=False,
-        )
-
-        track_records = []
-        for frame_idx, r in enumerate(results):
-            actual_frame = frame_idx * stride
-            if r.boxes is not None and r.boxes.id is not None:
-                boxes = r.boxes.xywh.cpu().numpy()
-                tids = r.boxes.id.cpu().numpy()
-                for b, tid in zip(boxes, tids):
-                    track_records.append({
-                        "frame": actual_frame,
-                        "track_id": int(tid),
-                        "x": float(b[0]),
-                        "y": float(b[1]),
-                        "w": float(b[2]),
-                        "h": float(b[3]),
-                    })
-
-        tracks_df = pd.DataFrame(track_records, columns=["frame", "track_id", "x", "y", "w", "h"])
-        motion_df = engineer_motion_features(tracks_df, fps=int(fps))
+        tracks_df = extract_tracks(vpath, conf=conf, vid_stride=stride)
+        motion_df = engineer_motion_features(tracks_df, fps=int(fps), width=float(vid_w), height=float(vid_h))
         iou_df = iou_overlap_features(tracks_df)
         summary_df = summarize_video_features(motion_df, iou_df, context)
 
