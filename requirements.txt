@@ -23,3 +23,4 @@ grad-cam
 imbalanced-learn
 folium
 streamlit-folium
+imageio-ffmpeg

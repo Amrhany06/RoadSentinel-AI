@@ -23,7 +23,9 @@ from src.pipeline import RoadSentinelPipeline
 from src.reasoning_agent import reason_about_clip
 from src.xai import explain_frame_gradcam
 
-DEMO_CACHE_DIR = "demo/precomputed"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEMO_CACHE_DIR = os.path.join(BASE_DIR, "demo", "precomputed")
+
 
 
 def precompute_demo_cache(

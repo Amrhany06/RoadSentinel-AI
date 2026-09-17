@@ -262,25 +262,26 @@ st.markdown(
 # ---------------------------------------------------------------------------
 # Directories & Presets
 # ---------------------------------------------------------------------------
-MODELS_DIR = "models"
-DEMO_DIR = "demo"
-DATASET_DIR = "data/accident_images"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+DEMO_DIR = os.path.join(BASE_DIR, "demo")
+DATASET_DIR = os.path.join(BASE_DIR, "data", "accident_images")
 
 SAMPLE_CLIPS = {
     "⚡ Fast Demo 01 | Highway Junction Multi-Car Collision": {
-        "file": "demo/clip_1.mp4",
+        "file": os.path.join(DEMO_DIR, "clip_1.mp4"),
         "cache_id": "Clear collision",
         "type": "Clear collision",
         "desc": "Severe high-speed multi-car impact. Rapid deceleration and catastrophic vehicle encroachment.",
     },
     "⚡ Fast Demo 02 | Urban Avenue Emergency Evasive Swerve": {
-        "file": "demo/clip_2.mp4",
+        "file": os.path.join(DEMO_DIR, "clip_2.mp4"),
         "cache_id": "Near-miss",
         "type": "Near-miss",
         "desc": "Emergency heavy braking and lane swerve. High proximity without direct structural intrusion.",
     },
     "⚡ Fast Demo 03 | Steady Highway Traffic Flow": {
-        "file": "demo/clip_3.mp4",
+        "file": os.path.join(DEMO_DIR, "clip_3.mp4"),
         "cache_id": "Normal traffic",
         "type": "Normal traffic",
         "desc": "Continuous baseline traffic vectors. Uniform velocity distribution and safe spatial headways.",

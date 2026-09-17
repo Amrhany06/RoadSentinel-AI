@@ -3,11 +3,12 @@ data/accident_images/
 data/motorcycle_accident_videos/
 *.mp4
 *.avi
-data/*_backup.csv
 # ...except the small, curated demo clips and their precomputed cache -- these ARE committed
 !demo/**
 !demo/**/*.mp4
 !data/*.csv
+data/*_backup.csv
+
 
 __pycache__/
 *.pyc
