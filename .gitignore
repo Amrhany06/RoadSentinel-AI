@@ -25,4 +25,6 @@ dispatch_tickets.db
 # Local study guides & defense reference manuals (kept in parent workspace)
 *GUIDE*.md
 *EXPLANATION*.md
+!docs/MASTER_STUDY_GUIDE_EXPERT.md
+
 
