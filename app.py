@@ -623,8 +623,13 @@ with col_stream:
         up = st.file_uploader("Upload Traffic File", type=["mp4", "mov", "avi", "jpg", "jpeg", "png"])
         if up:
             is_video = up.name.lower().endswith((".mp4", ".mov", ".avi"))
-            tfile = tempfile.NamedTemporaryFile(delete=False, suffix=f".{up.name.split('.')[-1]}")
-            tfile.write(up.read())
+            ext = up.name.split('.')[-1]
+            tfile = tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}")
+            
+            # Read complete file bytes safely and flush to disk
+            file_bytes = up.getvalue()
+            with open(tfile.name, "wb") as f:
+                f.write(file_bytes)
 
             if is_video:
                 raw_video_path = tfile.name
@@ -637,26 +642,32 @@ with col_stream:
                             st.session_state.last_result = res
                             st.toast("Live Upload Processed!", icon="✅")
             else:
-                up_img = cv2.imread(tfile.name)
-                st.image(cv2.cvtColor(up_img, cv2.COLOR_BGR2RGB), caption="Uploaded Photographic Frame", use_container_width=True)
-                if st.button("🚀 AUDIT IMAGE INCIDENT (RESNET-18 + XAI)", type="primary", use_container_width=True):
-                    acc_p, gcam = predict_image_deep_learning(up_img)
-                    is_acc = acc_p >= 0.50
-                    tier = 4 if is_acc else 0
-                    eta = 7.1 if is_acc else 0.0
-                    t = create_ticket(tier, "Incident flagged from user visual upload.", tfile.name, eta) if is_acc else None
-                    st.session_state.last_result = {
-                        "accident_probability": round(acc_p, 4),
-                        "severity_tier": tier,
-                        "stage": "dispatched" if is_acc else "triage_only",
-                        "predicted_response_minutes": eta,
-                        "explanation": "Visual assessment complete via fine-tuned ResNet-18 vision backbone.",
-                        "telemetry": {"is_static": True, "max_speed": 0.0, "max_deceleration": 0.0, "max_iou": 0.65 if is_acc else 0.02},
-                        "dispatch_ticket": t,
-                        "gradcam_img": gcam,
-                        "orig_img": up_img,
-                    }
-                    st.toast("Image Audit Complete!", icon="📸")
+                # Direct in-memory buffer decode to prevent empty tempfile errors on Streamlit Cloud
+                np_arr = np.frombuffer(file_bytes, np.uint8)
+                up_img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+
+                if up_img is not None:
+                    st.image(cv2.cvtColor(up_img, cv2.COLOR_BGR2RGB), caption="Uploaded Photographic Frame", use_container_width=True)
+                    if st.button("🚀 AUDIT IMAGE INCIDENT (RESNET-18 + XAI)", type="primary", use_container_width=True):
+                        acc_p, gcam = predict_image_deep_learning(up_img)
+                        is_acc = acc_p >= 0.50
+                        tier = 4 if is_acc else 0
+                        eta = 7.1 if is_acc else 0.0
+                        t = create_ticket(tier, "Incident flagged from user visual upload.", tfile.name, eta) if is_acc else None
+                        st.session_state.last_result = {
+                            "accident_probability": round(acc_p, 4),
+                            "severity_tier": tier,
+                            "stage": "dispatched" if is_acc else "triage_only",
+                            "predicted_response_minutes": eta,
+                            "explanation": "Visual assessment complete via fine-tuned ResNet-18 vision backbone.",
+                            "telemetry": {"is_static": True, "max_speed": 0.0, "max_deceleration": 0.0, "max_iou": 0.65 if is_acc else 0.02},
+                            "dispatch_ticket": t,
+                            "gradcam_img": gcam,
+                            "orig_img": up_img,
+                        }
+                        st.toast("Image Audit Complete!", icon="📸")
+                else:
+                    st.error("Could not decode the uploaded image. Please ensure it is a valid JPG or PNG file.")
 
 
 with col_vision:
@@ -672,7 +683,9 @@ with col_vision:
         if cid:
             g_path = os.path.join(DEMO_CACHE_DIR, "gradcam", f"{cid}_gradcam.png")
             if os.path.exists(g_path):
-                display_gradcam = cv2.cvtColor(cv2.imread(g_path), cv2.COLOR_BGR2RGB)
+                g_raw = cv2.imread(g_path)
+                if g_raw is not None:
+                    display_gradcam = cv2.cvtColor(g_raw, cv2.COLOR_BGR2RGB)
 
     if display_gradcam is not None:
         st.image(display_gradcam, caption="ResNet-18 Grad-CAM Attention Focus: Highlights High-Gradient Impact Deformations", use_container_width=True)
